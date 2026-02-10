@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoNLL Entity Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            opacity: 0.95;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .upload-section {
+            background: white;
+            padding: 3rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .upload-section.hidden {
+            display: none;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 3rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9ff;
+        }
+        
+        .upload-area:hover {
+            background: #f0f0ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e8e8ff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .upload-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .upload-button {
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .upload-button:hover {
+            background: #5568d3;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .processing {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .processing.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .viewer-section {
+            display: none;
+        }
+        
+        .viewer-section.active {
+            display: block;
+        }
+        
+        .controls {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .control-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .search-box {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .reset-button {
+            padding: 0.75rem 1.5rem;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        
+        .reset-button:hover {
+            background: #e0e0e0;
+        }
+        
+        .entity-type-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .tab {
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .tab:hover {
+            background: #e0e0e0;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab-count {
+            background: rgba(0,0,0,0.1);
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        
+        .tab.active .tab-count {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .entity-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .entity-section.active {
+            display: block;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .section-count {
+            background: #f0f0f0;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .entity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .entity-card {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .entity-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .entity-text {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #333;
+            word-break: break-word;
+        }
+        
+        .entity-record {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .record-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+            font-size: 1.1rem;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.2s;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: slideIn 0.3s;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #f0f0f0;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            transition: background 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: #e0e0e0;
+        }
+        
+        .modal-header {
+            margin-bottom: 1.5rem;
+            padding-right: 2rem;
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .modal-record-info {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .modal-text {
+            line-height: 1.8;
+            font-size: 1rem;
+            color: #333;
+        }
+        
+        .modal-text .highlight {
+            background: #fff3cd;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏷️ CoNLL Entity Viewer</h1>
+        <div class="stats" id="statsDiv" style="display: none;">
+            <div class="stat">
+                <span>Total Entities:</span>
+                <span class="stat-value" id="totalEntities">0</span>
+            </div>
+            <div class="stat">
+                <span>Entity Types:</span>
+                <span class="stat-value" id="totalTypes">0</span>
+            </div>
+            <div class="stat">
+                <span>Records:</span>
+                <span class="stat-value" id="totalRecords">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">Drop your CoNLL file here or click to browse</div>
+                <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                    Choose File
+                </button>
+                <input type="file" id="fileInput" accept=".conll,.txt">
+            </div>
+        </div>
+        
+        <!-- Processing Section -->
+        <div class="processing" id="processingSection">
+            <div class="spinner"></div>
+            <div>Processing your CoNLL file...</div>
+        </div>
+        
+        <!-- Viewer Section -->
+        <div class="viewer-section" id="viewerSection">
+            <div class="controls">
+                <div class="control-row">
+                    <input type="text" 
+                           id="searchBox" 
+                           class="search-box" 
+                           placeholder="Search entities...">
+                    <button class="reset-button" id="resetButton">↻ Upload New File</button>
+                </div>
+                <div class="entity-type-tabs" id="tabs"></div>
+            </div>
+            
+            <div id="entitySections"></div>
+        </div>
+    </div>
+    
+    <!-- Modal for showing full record text -->
+    <div class="modal" id="recordModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Record Text</h2>
+                <div class="modal-record-info" id="modalRecordInfo"></div>
+            </div>
+            <div class="modal-text" id="modalText"></div>
+        </div>
+    </div>
+    
+    <script>
+        let parsedData = null;
+        let recordTexts = {};
+        
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const uploadSection = document.getElementById('uploadSection');
+        const processingSection = document.getElementById('processingSection');
+        const viewerSection = document.getElementById('viewerSection');
+        const resetButton = document.getElementById('resetButton');
+        
+        fileInput.addEventListener('change', handleFile);
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                processFile(file);
+            }
+        });
+        
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        resetButton.addEventListener('click', () => {
+            location.reload();
+        });
+        
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+        
+        async function processFile(file) {
+            uploadSection.classList.add('hidden');
+            processingSection.classList.add('active');
+            
+            const text = await file.text();
+            
+            // Parse the CoNLL file
+            setTimeout(() => {
+                parsedData = parseCoNLL(text);
+                displayData();
+                
+                processingSection.classList.remove('active');
+                viewerSection.classList.add('active');
+                document.getElementById('statsDiv').style.display = 'flex';
+            }, 100);
+        }
+        
+        function parseCoNLL(text) {
+            const lines = text.split('\n');
+            const entitiesByType = {};
+            recordTexts = {};
+            
+            let currentRecord = 0;
+            let currentEntity = [];
+            let currentEntityType = null;
+            let currentTokens = [];
+            let currentTags = [];
+            
+            for (let line of lines) {
+                line = line.trim();
+                
+                // Skip comments
+                if (line.startsWith('#')) continue;
+                
+                // DOCSTART marker
+                if (line.startsWith('-DOCSTART-')) {
+                    // Save any pending entity
+                    if (currentEntity.length > 0 && currentEntityType) {
+                        const entityText = currentEntity.join(' ');
+                        if (!entitiesByType[currentEntityType]) {
+                            entitiesByType[currentEntityType] = [];
+                        }
+                        entitiesByType[currentEntityType].push({
+                            text: entityText,
+                            record: currentRecord
+                        });
+                    }
+                    
+                    // Save record text
+                    if (currentTokens.length > 0) {
+                        recordTexts[currentRecord] = {
+                            tokens: currentTokens,
+                            tags: currentTags
+                        };
+                    }
+                    
+                    currentEntity = [];
+                    currentEntityType = null;
+                    currentRecord++;
+                    currentTokens = [];
+                    currentTags = [];
+                    continue;
+                }
+                
+                // Empty line - end of sentence/record
+                if (line === '') {
+                    // Save any pending entity
+                    if (currentEntity.length > 0 && currentEntityType) {
+                        const entityText = currentEntity.join(' ');
+                        if (!entitiesByType[currentEntityType]) {
+                            entitiesByType[currentEntityType] = [];
+                        }
+                        entitiesByType[currentEntityType].push({
+                            text: entityText,
+                            record: currentRecord
+                        });
+                    }
+                    
+                    // Save record text
+                    if (currentTokens.length > 0) {
+                        recordTexts[currentRecord] = {
+                            tokens: currentTokens,
+                            tags: currentTags
+                        };
+                        currentRecord++;
+                    }
+                    
+                    currentEntity = [];
+                    currentEntityType = null;
+                    currentTokens = [];
+                    currentTags = [];
+                    continue;
+                }
+                
+                // Parse token line
+                const parts = line.split(/\s+/);
+                if (parts.length < 4) continue;
+                
+                const token = parts[0];
+                const tag = parts[3];
+                
+                currentTokens.push(token);
+                currentTags.push(tag);
+                
+                // Handle BIO tags
+                if (tag.startsWith('B-')) {
+                    // Save previous entity
+                    if (currentEntity.length > 0 && currentEntityType) {
+                        const entityText = currentEntity.join(' ');
+                        if (!entitiesByType[currentEntityType]) {
+                            entitiesByType[currentEntityType] = [];
+                        }
+                        entitiesByType[currentEntityType].push({
+                            text: entityText,
+                            record: currentRecord
+                        });
+                    }
+                    
+                    // Start new entity
+                    const entityType = tag.substring(2);
+                    currentEntity = [token];
+                    currentEntityType = entityType;
+                    
+                } else if (tag.startsWith('I-')) {
+                    const entityType = tag.substring(2);
+                    if (currentEntityType === entityType) {
+                        currentEntity.push(token);
+                    } else {
+                        // Tag mismatch - start new entity
+                        if (currentEntity.length > 0 && currentEntityType) {
+                            const entityText = currentEntity.join(' ');
+                            if (!entitiesByType[currentEntityType]) {
+                                entitiesByType[currentEntityType] = [];
+                            }
+                            entitiesByType[currentEntityType].push({
+                                text: entityText,
+                                record: currentRecord
+                            });
+                        }
+                        currentEntity = [token];
+                        currentEntityType = entityType;
+                    }
+                    
+                } else { // O tag
+                    // Save any pending entity
+                    if (currentEntity.length > 0 && currentEntityType) {
+                        const entityText = currentEntity.join(' ');
+                        if (!entitiesByType[currentEntityType]) {
+                            entitiesByType[currentEntityType] = [];
+                        }
+                        entitiesByType[currentEntityType].push({
+                            text: entityText,
+                            record: currentRecord
+                        });
+                    }
+                    currentEntity = [];
+                    currentEntityType = null;
+                }
+            }
+            
+            // Don't forget the last entity and record
+            if (currentEntity.length > 0 && currentEntityType) {
+                const entityText = currentEntity.join(' ');
+                if (!entitiesByType[currentEntityType]) {
+                    entitiesByType[currentEntityType] = [];
+                }
+                entitiesByType[currentEntityType].push({
+                    text: entityText,
+                    record: currentRecord
+                });
+            }
+            
+            if (currentTokens.length > 0) {
+                recordTexts[currentRecord] = {
+                    tokens: currentTokens,
+                    tags: currentTags
+                };
+            }
+            
+            return entitiesByType;
+        }
+        
+        function displayData() {
+            const entityTypes = Object.keys(parsedData).sort();
+            const totalEntities = Object.values(parsedData).reduce((sum, arr) => sum + arr.length, 0);
+            const totalRecordsCount = Object.keys(recordTexts).length;
+            
+            // Update stats
+            document.getElementById('totalEntities').textContent = totalEntities.toLocaleString();
+            document.getElementById('totalTypes').textContent = entityTypes.length;
+            document.getElementById('totalRecords').textContent = totalRecordsCount.toLocaleString();
+            
+            // Create tabs
+            const tabsContainer = document.getElementById('tabs');
+            tabsContainer.innerHTML = '';
+            
+            entityTypes.forEach((type, index) => {
+                const count = parsedData[type].length;
+                const tab = document.createElement('button');
+                tab.className = 'tab' + (index === 0 ? ' active' : '');
+                tab.dataset.type = type;
+                tab.innerHTML = `
+                    ${escapeHtml(type)}
+                    <span class="tab-count">${count.toLocaleString()}</span>
+                `;
+                tab.addEventListener('click', () => switchTab(type));
+                tabsContainer.appendChild(tab);
+            });
+            
+            // Create sections
+            const sectionsContainer = document.getElementById('entitySections');
+            sectionsContainer.innerHTML = '';
+            
+            entityTypes.forEach((type, index) => {
+                const entities = parsedData[type];
+                const section = document.createElement('div');
+                section.className = 'entity-section' + (index === 0 ? ' active' : '');
+                section.dataset.type = type;
+                
+                section.innerHTML = `
+                    <div class="section-header">
+                        <h2 class="section-title">${escapeHtml(type)}</h2>
+                        <div class="section-count">${entities.length.toLocaleString()} entities</div>
+                    </div>
+                    <div class="entity-grid">
+                        ${entities.map(entity => `
+                            <div class="entity-card" 
+                                 data-text="${escapeHtml(entity.text.toLowerCase())}"
+                                 data-record="${entity.record}"
+                                 data-entity-text="${escapeHtml(entity.text)}"
+                                 onclick="showRecord(${entity.record}, '${escapeHtml(entity.text)}')">
+                                <div class="entity-text">${escapeHtml(entity.text)}</div>
+                                <div class="entity-record">
+                                    Record <span class="record-badge">${entity.record}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                sectionsContainer.appendChild(section);
+            });
+            
+            // Setup search
+            const searchBox = document.getElementById('searchBox');
+            searchBox.addEventListener('input', (e) => {
+                filterEntities(e.target.value.toLowerCase());
+            });
+        }
+        
+        function switchTab(type) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.type === type);
+            });
+            
+            // Update sections
+            document.querySelectorAll('.entity-section').forEach(section => {
+                section.classList.toggle('active', section.dataset.type === type);
+            });
+            
+            // Clear search
+            document.getElementById('searchBox').value = '';
+            filterEntities('');
+        }
+        
+        function filterEntities(searchTerm) {
+            const activeSection = document.querySelector('.entity-section.active');
+            const cards = activeSection.querySelectorAll('.entity-card');
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const text = card.dataset.text;
+                if (text.includes(searchTerm)) {
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Show/hide no results message
+            const grid = activeSection.querySelector('.entity-grid');
+            let noResults = activeSection.querySelector('.no-results');
+            
+            if (visibleCount === 0 && searchTerm) {
+                if (!noResults) {
+                    noResults = document.createElement('div');
+                    noResults.className = 'no-results';
+                    noResults.textContent = 'No entities found matching your search';
+                    activeSection.appendChild(noResults);
+                }
+                grid.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                grid.style.display = 'grid';
+                if (noResults) {
+                    noResults.style.display = 'none';
+                }
+            }
+        }
+        
+        function showRecord(recordNum, entityText) {
+            const recordData = recordTexts[recordNum];
+            if (!recordData) {
+                alert('Record text not available');
+                return;
+            }
+            
+            const modal = document.getElementById('recordModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalRecordInfo = document.getElementById('modalRecordInfo');
+            const modalText = document.getElementById('modalText');
+            
+            modalTitle.textContent = 'Record #' + recordNum;
+            modalRecordInfo.textContent = `Entity: "${entityText}"`;
+            
+            // Build highlighted text
+            let html = '';
+            const entityTokens = entityText.toLowerCase().split(' ');
+            let matchStart = -1;
+            
+            for (let i = 0; i < recordData.tokens.length; i++) {
+                const token = recordData.tokens[i];
+                const tag = recordData.tags[i];
+                
+                // Check if this token starts or is part of our entity
+                let isEntityToken = false;
+                if (tag !== 'O') {
+                    // This is an entity token - check if it matches our entity
+                    const tokenLower = token.toLowerCase();
+                    const entityLower = entityText.toLowerCase();
+                    if (entityLower.includes(tokenLower)) {
+                        isEntityToken = true;
+                    }
+                }
+                
+                if (isEntityToken) {
+                    html += `<span class="highlight">${escapeHtml(token)}</span> `;
+                } else {
+                    html += escapeHtml(token) + ' ';
+                }
+            }
+            
+            modalText.innerHTML = html;
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('recordModal').classList.remove('active');
+        }
+        
+        // Close modal on outside click
+        document.getElementById('recordModal').addEventListener('click', (e) => {
+            if (e.target.id === 'recordModal') {
+                closeModal();
+            }
+        });
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
